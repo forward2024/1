@@ -1,0 +1,29 @@
+# Ігнорує bin та obj папки, які містять скомпільовані файли
+bin/
+obj/
+
+# Ігнорує папку .vscode, яка містить налаштування VS Code
+.vscode/
+
+# Ігнорує файли конфігурації, що можуть містити чутливу інформацію
+appsettings.json
+appsettings.Development.json
+appsettings.Production.json
+
+# Ігнорує ASP.NET Scaffolding файли
+ScaffoldingReadMe.txt
+
+# Ігнорує файли, що створені при публікації проекту
+publish/
+
+# Ігнорує тимчасові файли
+*.tmp
+*.temp
+
+# Ігнорує файли пакетів NuGet
+*.nupkg
+# Ігнорує папку packages, яка містить NuGet пакети
+packages/
+
+# Ігнорує резервні файли, створені деякими текстовими редакторами
+*~
