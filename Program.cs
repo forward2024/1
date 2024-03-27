@@ -1,12 +1,15 @@
 global using Microsoft.EntityFrameworkCore;
-//global using _1.Data;
+global using System.Collections.Concurrent;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
-builder.Services.AddDbContext<DBContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("ConnectionTpDB")));
+builder.Services.AddSingleton<NoteManager>();
+builder.Services.AddDbContextFactory<DBContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("ConnectionToDB")));
+builder.Services.AddHostedService<DataRefreshService>();
+
 
 var app = builder.Build();
 

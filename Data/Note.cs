@@ -1,6 +1,7 @@
 public class Note
 {
-    public string Title { get; set; }
-    public string Text { get; set; }
-    public DateTime DataCreating { get; set; } = DateTime.Now;
+    public Guid Id { get; set; } = Guid.Empty;
+    public string? Title { get; set; }
+    public string? Content { get; set; }
+    public DateTime DateCreated { get; set; } = DateTime.UtcNow;
 }
