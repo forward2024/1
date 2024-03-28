@@ -6,6 +6,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 builder.Services.AddSingleton<NoteManager>();
+builder.Services.AddScoped<SearchService>();
 builder.Services.AddDbContextFactory<DBContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("ConnectionToDB")));
 builder.Services.AddHostedService<DataRefreshService>();

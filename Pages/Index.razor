@@ -1,57 +1,112 @@
 ﻿@page "/"
 @inject NoteManager NoteManager
+@inject SearchService SearchService
 
 <PageTitle>Notebook</PageTitle>
 
 <div class="container">
     <div class="header">
         <button @onclick="OpenCreateModal" class="note-add">New note</button>
-        <input type="text" placeholder="Enter search term" class="search-input">
+        <input @oninput="OnSearchInput" type="text" placeholder="Enter search term" class="search-input">
         <div class=" total-notes">Total notes: @NoteManager.Current.Count
         </div>
     </div>
 
     <div class="notes-list">
-        @foreach (var note in NoteManager.Current)
+        @if (!string.IsNullOrEmpty(currentSearchTerm) && currentSearchTerm.Length >= 3)
         {
-            <div class="note-item" @onclick="() => ToggleNoteContentVisibility(note.Id)">
-                <div class="note-info">
-                    <div class="note-title">@note.Title</div>
-                    <small class="note-data">@FormatDate(note.DateCreated)</small>
-                    <div class="note-footer">
-                        <button class="edit-note-btn" @onclick:stopPropagation="true"
-                            @onclick="() => OpenEditModal(note)">Edit note
-                        </button>
-                        <button class="remove-note-btn" @onclick:stopPropagation="true"
-                            @onclick="() => RemoveNote(note.Id)">Remove note
-                        </button>
+            @if (SearchResults.Any())
+            {
+                @foreach (var note in SearchResults)
+                {
+                    <div class="note-item" @onclick="() => ToggleNoteContentVisibility(note.Id)">
+                        <div class="note-info">
+                            <div class="note-title">@note.Title</div>
+                            <small class="note-data">@FormatDate(note.DateCreated)</small>
+                            <div class="note-footer">
+                                <button class="edit-note-btn" @onclick:stopPropagation="true"
+                                    @onclick="() => OpenEditModal(note)">Edit note
+                                </button>
+                                <button class="remove-note-btn" @onclick:stopPropagation="true"
+                                    @onclick="() => RemoveNote(note.Id)">Remove note
+                                </button>
+                            </div>
+                        </div>
+                        <div class="container-note-content">
+                            @if (noteVisibility.TryGetValue(note.Id, out var isVisible) && isVisible)
+                            {
+                                @if (!string.IsNullOrWhiteSpace(note.Content))
+                                {
+                                    <div class="note-content visible">@note.Content</div>
+                                }
+                                else
+                                {
+                                    <div class="note-content visible">Контент нотатки пустий.</div>
+                                }
+                            }
+                            else
+                            {
+                                @if (!string.IsNullOrWhiteSpace(note.Content))
+                                {
+                                    <div class="note-content">@note.Content</div>
+                                }
+                                else
+                                {
+                                    <div class="note-content">Контент нотатки пустий.</div>
+                                }
+                            }
+                        </div>
+                    </div>
+                }
+            }
+            else
+            {
+                <div style="display: flex; justify-content: center;">Інформації не має</div>
+            }
+        }
+        else
+        {
+            @foreach (var note in NoteManager.Current)
+            {
+                <div class="note-item" @onclick="() => ToggleNoteContentVisibility(note.Id)">
+                    <div class="note-info">
+                        <div class="note-title">@note.Title</div>
+                        <small class="note-data">@FormatDate(note.DateCreated)</small>
+                        <div class="note-footer">
+                            <button class="edit-note-btn" @onclick:stopPropagation="true"
+                                @onclick="() => OpenEditModal(note)">Edit note
+                            </button>
+                            <button class="remove-note-btn" @onclick:stopPropagation="true"
+                                @onclick="() => RemoveNote(note.Id)">Remove note
+                            </button>
+                        </div>
+                    </div>
+                    <div class="container-note-content">
+                        @if (noteVisibility.TryGetValue(note.Id, out var isVisible) && isVisible)
+                        {
+                            @if (!string.IsNullOrWhiteSpace(note.Content))
+                            {
+                                <div class="note-content visible">@note.Content</div>
+                            }
+                            else
+                            {
+                                <div class="note-content visible">Контент нотатки пустий.</div>
+                            }
+                        }
+                        else
+                        {
+                            @if (!string.IsNullOrWhiteSpace(note.Content))
+                            {
+                                <div class="note-content">@note.Content</div>
+                            }
+                            else
+                            {
+                                <div class="note-content">Контент нотатки пустий.</div>
+                            }
+                        }
                     </div>
                 </div>
-                <div class="container-note-content">
-                    @if (noteVisibility.TryGetValue(note.Id, out var isVisible) && isVisible)
-                    {
-                        @if (!string.IsNullOrWhiteSpace(note.Content))
-                        {
-                            <div class="note-content visible">@note.Content</div>
-                        }
-                        else
-                        {
-                            <div class="note-content visible">Контент нотатки пустий.</div>
-                        }
-                    }
-                    else
-                    {
-                        @if (!string.IsNullOrWhiteSpace(note.Content))
-                        {
-                            <div class="note-content">@note.Content</div>
-                        }
-                        else
-                        {
-                            <div class="note-content">Контент нотатки пустий.</div>
-                        }
-                    }
-                </div>
-            </div>
+            }
         }
     </div>
 </div>
@@ -82,6 +137,18 @@
     </div>
 </div>
 }
+
+<h2>Keywords Dictionary</h2>
+
+@foreach (var entry in NoteManager.keywordsDictionary)
+{
+    <h3>@entry.Key</h3>
+    @foreach (var noteEntry in entry.Value)
+    {
+        <p>Note ID: @noteEntry.Note.Id, Occurrences: @noteEntry.Occurrences</p>
+    }
+}
+
 
 @code {
     private bool isModalOpen = false;
@@ -170,6 +237,23 @@
         else
         {
             noteVisibility[noteId] = !noteVisibility[noteId];
+        }
+        StateHasChanged();
+    }
+
+    private string currentSearchTerm = string.Empty;
+    private List<Note> SearchResults = new();
+    private void OnSearchInput(ChangeEventArgs e)
+    {
+        currentSearchTerm = e.Value?.ToString() ?? string.Empty;
+        if (currentSearchTerm.Split(new[] { ' ', '.', ',', '!', '?' }, StringSplitOptions.RemoveEmptyEntries).Any(word =>
+        word.Length >= 3))
+        {
+            SearchResults = SearchService.Search(currentSearchTerm);
+        }
+        else
+        {
+            SearchResults.Clear();
         }
         StateHasChanged();
     }

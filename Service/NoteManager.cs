@@ -6,7 +6,6 @@ public class NoteManager
     ConcurrentQueue<Note> Edits = new ConcurrentQueue<Note>();
     ConcurrentQueue<Guid> Removes = new ConcurrentQueue<Guid>();
 
-
     public NoteManager(IDbContextFactory<DBContext> context)
     {
         this.context = context;
@@ -22,6 +21,10 @@ public class NoteManager
         using (var context = this.context.CreateDbContext())
         {
             Current = await context.Notes.OrderBy(x => x.DateCreated).ToListAsync();
+            foreach (var note in Current)
+            {
+                AddNoteToDictionary(note);
+            }
         }
     }
 
@@ -45,6 +48,7 @@ public class NoteManager
                 while (Adds.TryDequeue(out note))
                 {
                     await dbContext.Notes.AddAsync(note);
+                    AddNoteToDictionary(note);
                 }
                 await dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
@@ -68,7 +72,9 @@ public class NoteManager
                     var existingNote = await dbContext.Notes.FindAsync(note.Id);
                     if (existingNote != null)
                     {
+                        RemoveNoteFromDictionary(existingNote);
                         dbContext.Entry(existingNote).CurrentValues.SetValues(note);
+                        AddNoteToDictionary(note);
                     }
                 }
                 await dbContext.SaveChangesAsync();
@@ -94,6 +100,7 @@ public class NoteManager
                     if (existingNote != null)
                     {
                         dbContext.Notes.Remove(existingNote);
+                        RemoveNoteFromDictionary(existingNote);
                     }
                 }
                 await dbContext.SaveChangesAsync();
@@ -104,5 +111,84 @@ public class NoteManager
                 await transaction.RollbackAsync();
             }
         }
+    }
+
+    static public Dictionary<string, List<NoteEntry>> keywordsDictionary = new();
+
+    public void AddNoteToDictionary(Note note)
+    {
+        var keywords = GetWords(note.Title ?? string.Empty)
+                       .Concat(GetWords(note.Content ?? string.Empty))
+                       .Where(word => word.Length >= 3)
+                       .Distinct();
+
+        foreach (var keyword in keywords)
+        {
+            int occurrences = CountKeywordOccurrences(note, keyword);
+
+            if (!keywordsDictionary.ContainsKey(keyword))
+            {
+                keywordsDictionary[keyword] = new List<NoteEntry>();
+            }
+
+            var list = keywordsDictionary[keyword];
+            var index = FindInsertionIndex(list, occurrences);
+            list.Insert(index, new NoteEntry(note, occurrences));
+        }
+    }
+
+    public IEnumerable<string> GetWords(string text) => text.ToLowerInvariant().Split(new[] { ' ', '.', ',', '!', '?' }, StringSplitOptions.RemoveEmptyEntries);
+
+    private int CountKeywordOccurrences(Note note, string keyword)
+    {
+        var titleWords = GetWords(note.Title ?? string.Empty);
+        var contentWords = GetWords(note.Content ?? string.Empty);
+
+        return titleWords.Concat(contentWords).Count(word => string.Equals(word, keyword, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private void RemoveNoteFromDictionary(Note note)
+    {
+        var keywords = GetWords(note.Title ?? string.Empty)
+                       .Concat(GetWords(note.Content ?? string.Empty))
+                       .Where(word => word.Length >= 3)
+                       .Distinct();
+
+        foreach (var keyword in keywords)
+        {
+            if (keywordsDictionary.ContainsKey(keyword))
+            {
+                var entries = keywordsDictionary[keyword];
+                bool removed = entries.RemoveAll(e => e.Note.Id == note.Id) > 0;
+
+                if (removed && !entries.Any())
+                {
+                    keywordsDictionary.Remove(keyword);
+                }
+            }
+        }
+    }
+
+    public int FindInsertionIndex(List<NoteEntry> list, int targetOccurrences)
+    {
+        int left = 0;
+        int right = list.Count;
+
+        while (left < right)
+        {
+            int mid = left + (right - left) / 2;
+            int currentOccurrences = list[mid].Occurrences;
+
+            if (currentOccurrences > targetOccurrences)
+            {
+                left = mid + 1;
+            }
+            else
+            {
+                right = mid;
+            }
+        }
+
+        return left;
     }
 }
