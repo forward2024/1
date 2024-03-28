@@ -138,17 +138,6 @@
 </div>
 }
 
-<h2>Keywords Dictionary</h2>
-
-@foreach (var entry in NoteManager.keywordsDictionary)
-{
-    <h3>@entry.Key</h3>
-    @foreach (var noteEntry in entry.Value)
-    {
-        <p>Note ID: @noteEntry.Note.Id, Occurrences: @noteEntry.Occurrences</p>
-    }
-}
-
 
 @code {
     private bool isModalOpen = false;
